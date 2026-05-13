@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>adversarial.ai — Break Neural Networks</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #050508;
+      --surface: #0d0d14;
+      --surface2: #13131e;
+      --border: rgba(255,255,255,0.07);
+      --accent: #e8ff47;
+      --accent2: #ff4757;
+      --accent3: #47c8ff;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --glow: rgba(232,255,71,0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(232,255,71,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232,255,71,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Noise texture */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+    }
+
+    .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.4rem;
+      letter-spacing: -0.04em;
+      color: var(--accent);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      background: var(--accent2);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    nav { display: flex; gap: 28px; font-size: 0.75rem; color: var(--muted); }
+    nav a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    nav a:hover { color: var(--accent); }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 80px 0 60px;
+      animation: fadeUp 0.8s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-eyebrow {
+      font-size: 0.7rem;
+      color: var(--accent2);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.8rem, 7vw, 5.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 span.glitch {
+      color: var(--accent);
+      position: relative;
+      display: inline-block;
+    }
+
+    .hero h1 span.glitch::before,
+    .hero h1 span.glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      animation: glitch 4s infinite;
+    }
+
+    .hero h1 span.glitch::before {
+      color: var(--accent2);
+      clip-path: polygon(0 30%, 100% 30%, 100% 50%, 0 50%);
+      animation-delay: 0.5s;
+    }
+
+    .hero h1 span.glitch::after {
+      color: var(--accent3);
+      clip-path: polygon(0 60%, 100% 60%, 100% 75%, 0 75%);
+      animation-delay: 1s;
+    }
+
+    @keyframes glitch {
+      0%, 92%, 100% { transform: translateX(0); opacity: 0; }
+      93% { transform: translateX(-4px); opacity: 0.8; }
+      95% { transform: translateX(4px); opacity: 0.8; }
+      97% { transform: translateX(-2px); opacity: 0.5; }
+    }
+
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.7;
+    }
+
+    /* ── DEMO CARD ── */
+    .demo-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 60px;
+      animation: fadeUp 0.8s 0.2s ease both;
+      box-shadow: 0 0 80px rgba(232,255,71,0.04);
+    }
+
+    .demo-topbar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .demo-dots { display: flex; gap: 6px; }
+    .demo-dots span {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .demo-dots span:nth-child(1) { background: #ff5f57; }
+    .demo-dots span:nth-child(2) { background: #febc2e; }
+    .demo-dots span:nth-child(3) { background: #28c840; }
+
+    .demo-body { padding: 28px; }
+
+    .model-select-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+
+    .model-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .model-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .model-btn.active {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    .canvas-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .canvas-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .canvas-label {
+      padding: 10px 14px;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .canvas-label .badge {
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: 0.6rem;
+      font-weight: 700;
+    }
+
+    .badge-original { background: rgba(71,200,255,0.15); color: var(--accent3); }
+    .badge-adversarial { background: rgba(255,71,87,0.15); color: var(--accent2); }
+    .badge-success { background: rgba(232,255,71,0.15); color: var(--accent); }
+
+    .canvas-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 180px;
+      padding: 16px;
+      position: relative;
+    }
+
+    canvas {
+      width: 140px;
+      height: 140px;
+      image-rendering: pixelated;
+      border-radius: 4px;
+    }
+
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .ctrl-group label {
+      display: block;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    select, .select-style {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      padding: 9px 12px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6b80' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+
+    select:focus { border-color: var(--accent); }
+
+    .epsilon-row {
+      margin-bottom: 20px;
+    }
+
+    .epsilon-row label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .epsilon-row label span { color: var(--accent); font-weight: 700; }
+
+    input[type=range] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn-primary {
+      padding: 12px 24px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-primary:hover { background: #fff; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-secondary {
+      padding: 12px 18px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── STATUS & PREDICTION ── */
+    .status-bar {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-bar.running { border-color: var(--accent); color: var(--accent); }
+    .status-bar.success { border-color: var(--accent2); color: var(--accent2); }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid transparent;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .pred-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .pred-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .pred-box h6 {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .pred-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .pred-label { font-size: 0.72rem; min-width: 16px; text-align: right; }
+
+    .pred-bar-bg {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .pred-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+      background: var(--accent3);
+    }
+
+    .pred-bar.top { background: var(--accent2); }
+
+    .pred-pct { font-size: 0.65rem; color: var(--muted); min-width: 36px; text-align: right; }
+
+    /* ── AI EXPLAINER ── */
+    .ai-explainer {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 60px;
+      animation: fadeUp 0.8s 0.35s ease both;
+    }
+
+    .ai-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface2);
+    }
+
+    .ai-avatar {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #000;
+      flex-shrink: 0;
+    }
+
+    .ai-title { font-size: 0.75rem; color: var(--text); }
+    .ai-subtitle { font-size: 0.65rem; color: var(--muted); }
+
+    .ai-body {
+      padding: 24px;
+      min-height: 120px;
+    }
+
+    .ai-typing {
+      display: inline-block;
+      width: 6px; height: 14px;
+      background: var(--accent);
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    #ai-output {
+      font-size: 0.82rem;
+      line-height: 1.8;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    .ai-question-row {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+    }
+
+    .ai-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      outline: none;
+    }
+
+    .ai-input:focus { border-color: var(--accent); }
+    .ai-input::placeholder { color: var(--muted); }
+
+    .ai-send {
+      padding: 10px 18px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .ai-send:hover { background: #fff; }
+    .ai-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── FAQ / INFO ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 60px;
+      animation: fadeUp 0.8s 0.5s ease both;
+    }
+
+    @media (max-width: 680px) {
+      .info-grid, .canvas-grid, .controls-row, .pred-grid { grid-template-columns: 1fr; }
+      nav { display: none; }
+      .hero h1 { font-size: 2.4rem; }
+    }
+
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .info-card h4 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+
+    .info-card p, .info-card li {
+      font-size: 0.76rem;
+      line-height: 1.8;
+      color: var(--muted);
+    }
+
+    .info-card ul { padding-left: 16px; }
+    .info-card li { margin-bottom: 4px; }
+
+    /* ── ATTACK EXPLAINED ── */
+    .attack-viz {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0;
+      font-size: 0.72rem;
+    }
+
+    .attack-step {
+      flex: 1;
+      padding: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+      font-size: 0.65rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .attack-arrow { color: var(--accent); font-size: 1rem; flex-shrink: 0; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0;
+      text-align: center;
+      font-size: 0.65rem;
+      color: var(--muted);
+      animation: fadeUp 0.8s 0.6s ease both;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ── PIXEL CANVAS ANIMATION ── */
+    .pixel-noise-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+
+    /* scanning line effect */
+    .scan-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scan 3s linear infinite;
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    @keyframes scan {
+      from { top: 0%; }
+      to { top: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <a href="#" class="logo">
+      <div class="logo-dot"></div>
+      Adversarial Attacks
+    </a>
+    <nav>
+      <a href="#">Intro</a>
+      <a href="#">Examples</a>
+      <a href="#">FAQ</a>
+      <a href="#">API</a>
+    </nav>
+  </header>
+
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">// adversarial machine learning</div>
+    <h1>
+      Break neural<br/>
+      <span class="glitch" data-text="networks.">networks.</span>
+    </h1>
+    <p class="hero-sub">
+      Add invisible noise to any image and watch a state-of-the-art neural network
+      completely lose its mind — explained in real time by AI.
+    </p>
+  </section>
+
+  <!-- DEMO -->
+  <div class="demo-card">
+    <div class="demo-topbar">
+      <div class="demo-dots">
+        <span></span><span></span><span></span>
+      </div>
+      adversarial-demo.js — client-side attack simulator
+    </div>
+    <div class="demo-body">
+
+      <!-- Model selector -->
+      <div class="model-select-row">
+        <button class="model-btn active" data-model="mnist">MNIST digits</button>
+        <button class="model-btn" data-model="fashion">Fashion MNIST</button>
+        <button class="model-btn" data-model="cifar">CIFAR-10</button>
+      </div>
+
+      <!-- Canvases -->
+      <div class="canvas-grid">
+        <div class="canvas-box">
+          <div class="canvas-label">
+            Original Image <span class="badge badge-original">CLEAN</span>
+          </div>
+          <div class="canvas-inner" id="original-wrap">
+            <div class="scan-line"></div>
+            <canvas id="original-canvas" width="28" height="28"></canvas>
+          </div>
+        </div>
+        <div class="canvas-box">
+          <div class="canvas-label">
+            Adversarial Image <span class="badge badge-adversarial" id="adv-badge">PENDING</span>
+          </div>
+          <div class="canvas-inner" id="adv-wrap">
+            <canvas id="adversarial-canvas" width="28" height="28"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-row">
+        <div class="ctrl-group">
+          <label>Target class (fool network into seeing)</label>
+          <select id="target-select">
+            <option value="0">0 — Zero</option>
+            <option value="1">1 — One</option>
+            <option value="2">2 — Two</option>
+            <option value="3" selected>3 — Three</option>
+            <option value="4">4 — Four</option>
+            <option value="5">5 — Five</option>
+            <option value="6">6 — Six</option>
+            <option value="7">7 — Seven</option>
+            <option value="8">8 — Eight</option>
+            <option value="9">9 — Nine</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label>Attack method</label>
+          <select id="attack-select">
+            <option value="fgsm">FGSM — Fast Gradient Sign Method</option>
+            <option value="bim">BIM — Basic Iterative Method</option>
+            <option value="pgd">PGD — Projected Gradient Descent</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="epsilon-row">
+        <label>
+          <span>Epsilon (perturbation strength)</span>
+          <span id="eps-val">0.15</span>
+        </label>
+        <input type="range" id="eps-range" min="0.01" max="0.5" step="0.01" value="0.15"/>
+      </div>
+
+      <div class="action-row">
+        <button class="btn-primary" id="gen-btn">⚡ Generate Attack</button>
+        <button class="btn-secondary" id="next-btn">Next Image ⟳</button>
+        <button class="btn-secondary" id="explain-btn">🤖 Ask AI to Explain</button>
+      </div>
+
+      <div class="status-bar" id="status-bar">
+        Select a model and click Generate to run an adversarial attack.
+      </div>
+
+      <!-- Predictions -->
+      <div class="pred-grid">
+        <div class="pred-box">
+          <h6>Neural net prediction — original</h6>
+          <div id="original-pred">
+            <div class="pred-item" style="color: var(--muted); font-size:0.72rem;">Run attack first.</div>
+          </div>
+        </div>
+        <div class="pred-box">
+          <h6>Neural net prediction — adversarial</h6>
+          <div id="adv-pred">
+            <div class="pred-item" style="color: var(--muted); font-size:0.72rem;">Run attack first.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI EXPLAINER -->
+  <div class="ai-explainer">
+    <div class="ai-header">
+      <div class="ai-avatar">AI</div>
+      <div>
+        <div class="ai-title">AI Explainer</div>
+        <div class="ai-subtitle">Ask anything about adversarial attacks — or about our research paper</div>
+      </div>
+    </div>
+    <div class="ai-body">
+      <div id="ai-output">Hello! I'm here to explain adversarial machine learning in plain terms.
+
+Click <strong style="color:var(--accent)">⚡ Generate Attack</strong> in the demo above and then hit <strong style="color:var(--accent)">🤖 Ask AI to Explain</strong> — I'll break down exactly what happened and why the neural network was fooled.
+
+You can also ask anything about our research paper — methodology, results, CNN architecture, epsilon values, and more ↓</div>
+    </div>
+    <div class="ai-question-row">
+      <input class="ai-input" id="ai-input" type="text" placeholder="e.g. What accuracy drop did you get? How does FGSM work in your paper?"/>
+      <button class="ai-send" id="ai-send">Ask →</button>
+    </div>
+  </div>
+
+  <!-- INFO CARDS -->
+  <div class="info-grid">
+    <div class="info-card">
+      <h4>What is an adversarial example?</h4>
+      <p>A neural network input crafted with tiny, imperceptible perturbations that cause the model to make wildly wrong predictions — while looking identical to humans.</p>
+      <div class="attack-viz">
+        <div class="attack-step">Original image<br/><span style="color:var(--accent3)">→ Correctly classified</span></div>
+        <div class="attack-arrow">+ε</div>
+        <div class="attack-step">Noise added<br/><span style="color:var(--muted)">→ Invisible to you</span></div>
+        <div class="attack-arrow">→</div>
+        <div class="attack-step">Adversarial<br/><span style="color:var(--accent2)">→ Misclassified!</span></div>
+      </div>
+    </div>
+    <div class="info-card">
+      <h4>Why does this matter?</h4>
+      <ul>
+        <li>Fool facial recognition systems</li>
+        <li>Confuse self-driving car vision</li>
+        <li>Bypass content moderation</li>
+        <li>Evade malware classifiers</li>
+        <li>Manipulate medical diagnosis AI</li>
+        <li>Spoof mobile banking apps</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Attack methods</h4>
+      <p><strong style="color:var(--accent)">FGSM</strong> — Single step along gradient sign. Fast but weak.</p>
+      <p style="margin-top:8px"><strong style="color:var(--accent)">BIM</strong> — Iterative FGSM with clipping. Stronger.</p>
+      <p style="margin-top:8px"><strong style="color:var(--accent)">PGD</strong> — Projected gradient descent. Most powerful iterative method.</p>
+      <p style="margin-top:8px"><strong style="color:var(--accent)">C&amp;W</strong> — Optimization-based. Finds minimal perturbation.</p>
+    </div>
+    <div class="info-card">
+      <h4>Defenses</h4>
+      <p><strong style="color:var(--accent3)">Adversarial training</strong> — Include adversarial examples during training.</p>
+      <p style="margin-top:8px"><strong style="color:var(--accent3)">Input preprocessing</strong> — Denoise or transform inputs before inference.</p>
+      <p style="margin-top:8px"><strong style="color:var(--accent3)">Certified defenses</strong> — Provably robust within a perturbation bound.</p>
+      <p style="margin-top:8px; color:var(--accent2)">No defense is universal yet.</p>
+    </div>
+  </div>
+
+  <footer>
+    Adversarial Attacks · For educational purposes
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// MNIST DATA — 28x28 digit patterns (simplified synthetic)
+// ═══════════════════════════════════════════════════════
+
+const DIGITS = {};
+
+function makeDigitPixels(d) {
+  const p = new Float32Array(28 * 28).fill(0);
+  // Simple stroke patterns for each digit
+  const patterns = {
+    0: [[4,8],[5,8],[6,8],[7,8],[8,8],[3,9],[9,9],[3,10],[9,10],[3,11],[9,11],[3,12],[9,12],[3,13],[9,13],[4,14],[5,14],[6,14],[7,14],[8,14]],
+    1: [[6,8],[7,8],[6,9],[7,9],[5,10],[6,10],[7,10],[6,11],[7,11],[6,12],[7,12],[6,13],[7,13],[6,14],[7,14],[5,15],[6,15],[7,15],[8,15]],
+    2: [[4,8],[5,8],[6,8],[7,8],[8,8],[3,9],[9,9],[9,10],[8,11],[7,11],[6,12],[5,12],[4,13],[3,14],[3,15],[4,15],[5,15],[6,15],[7,15],[8,15],[9,15]],
+    3: [[4,8],[5,8],[6,8],[7,8],[8,8],[9,9],[9,10],[6,11],[7,11],[8,11],[9,12],[9,13],[9,14],[4,15],[5,15],[6,15],[7,15],[8,15]],
+    4: [[8,8],[7,8],[8,9],[7,9],[6,10],[8,10],[5,11],[8,11],[4,12],[8,12],[3,13],[4,13],[5,13],[6,13],[7,13],[8,13],[9,13],[8,14],[8,15]],
+    5: [[3,8],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8],[3,9],[3,10],[3,11],[4,11],[5,11],[6,11],[7,11],[8,11],[9,12],[9,13],[9,14],[3,15],[4,15],[5,15],[6,15],[7,15],[8,15]],
+    6: [[4,8],[5,8],[6,8],[7,8],[8,8],[3,9],[3,10],[3,11],[4,11],[5,11],[6,11],[7,11],[8,11],[3,12],[9,12],[3,13],[9,13],[3,14],[9,14],[4,15],[5,15],[6,15],[7,15],[8,15]],
+    7: [[3,8],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8],[9,9],[8,10],[7,11],[6,12],[6,13],[6,14],[6,15]],
+    8: [[4,8],[5,8],[6,8],[7,8],[8,8],[3,9],[9,9],[3,10],[9,10],[4,11],[5,11],[6,11],[7,11],[8,11],[3,12],[9,12],[3,13],[9,13],[3,14],[9,14],[4,15],[5,15],[6,15],[7,15],[8,15]],
+    9: [[4,8],[5,8],[6,8],[7,8],[8,8],[3,9],[9,9],[3,10],[9,10],[4,11],[5,11],[6,11],[7,11],[8,11],[9,12],[9,13],[9,14],[3,15],[4,15],[5,15],[6,15],[7,15],[8,15]]
+  };
+  const strokes = patterns[d] || patterns[0];
+  strokes.forEach(([x,y]) => {
+    for (let dy=-1; dy<=1; dy++) for (let dx=-1; dx<=1; dx++) {
+      const nx = x+dx, ny = y+dy;
+      if (nx>=0&&nx<28&&ny>=0&&ny<28) {
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        p[ny*28+nx] = Math.max(p[ny*28+nx], 1 - dist*0.45);
+      }
+    }
+  });
+  return p;
+}
+
+for (let d = 0; d < 10; d++) DIGITS[d] = makeDigitPixels(d);
+
+// ═══════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════
+
+const origCanvas = document.getElementById('original-canvas');
+const advCanvas = document.getElementById('adversarial-canvas');
+const origCtx = origCanvas.getContext('2d');
+const advCtx = advCanvas.getContext('2d');
+
+let currentDigit = 7;
+let currentAdversarial = null;
+let lastAttackInfo = null;
+
+function renderPixels(ctx, pixels, w=28, h=28, tint=[71,200,255]) {
+  const img = ctx.createImageData(w, h);
+  for (let i = 0; i < w*h; i++) {
+    const v = Math.max(0, Math.min(1, pixels[i]));
+    img.data[i*4]   = tint[0] * v + 13*(1-v);
+    img.data[i*4+1] = tint[1] * v + 13*(1-v);
+    img.data[i*4+2] = tint[2] * v + 13*(1-v);
+    img.data[i*4+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function drawOriginal() {
+  renderPixels(origCtx, DIGITS[currentDigit], 28, 28, [71,200,255]);
+}
+
+function clearAdversarial() {
+  advCtx.fillStyle = '#13131e';
+  advCtx.fillRect(0,0,28,28);
+  document.getElementById('adv-badge').textContent = 'PENDING';
+  document.getElementById('adv-badge').className = 'badge badge-adversarial';
+  currentAdversarial = null;
+  lastAttackInfo = null;
+  resetPredictions();
+}
+
+function resetPredictions() {
+  document.getElementById('original-pred').innerHTML = '<div class="pred-item" style="color:var(--muted);font-size:0.72rem;">Run attack first.</div>';
+  document.getElementById('adv-pred').innerHTML = '<div class="pred-item" style="color:var(--muted);font-size:0.72rem;">Run attack first.</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+// SIMULATED ATTACKS
+// ═══════════════════════════════════════════════════════
+
+function fgsm(pixels, targetClass, epsilon) {
+  const grad = computeGradient(pixels, targetClass);
+  return pixels.map((p, i) => Math.max(0, Math.min(1, p + epsilon * Math.sign(grad[i]))));
+}
+
+function bim(pixels, targetClass, epsilon, steps=10) {
+  let x = [...pixels];
+  const alpha = epsilon / steps;
+  for (let s = 0; s < steps; s++) {
+    const grad = computeGradient(x, targetClass);
+    x = x.map((p, i) => Math.max(0, Math.min(1, p + alpha * Math.sign(grad[i]))));
+    // Project back into epsilon ball
+    x = x.map((p, i) => Math.max(pixels[i]-epsilon, Math.min(pixels[i]+epsilon, p)));
+  }
+  return x;
+}
+
+function pgd(pixels, targetClass, epsilon, steps=20) {
+  // Random start
+  let x = pixels.map(p => Math.max(0, Math.min(1, p + (Math.random()*2-1)*epsilon*0.3)));
+  const alpha = epsilon * 2.5 / steps;
+  for (let s = 0; s < steps; s++) {
+    const grad = computeGradient(x, targetClass);
+    x = x.map((p, i) => Math.max(0, Math.min(1, p + alpha * Math.sign(grad[i]))));
+    x = x.map((p, i) => Math.max(pixels[i]-epsilon, Math.min(pixels[i]+epsilon, p)));
+  }
+  return x;
+}
+
+function computeGradient(pixels, targetClass) {
+  // Simulated gradient: push toward target digit pattern
+  const target = DIGITS[targetClass];
+  return pixels.map((p, i) => {
+    const diff = target[i] - p;
+    return diff + (Math.random() - 0.5) * 0.1;
+  });
+}
+
+// Simulated softmax predictions
+function predict(pixels, trueClass) {
+  const scores = [];
+  for (let c = 0; c < 10; c++) {
+    const target = DIGITS[c];
+    let sim = 0;
+    for (let i = 0; i < pixels.length; i++) sim += pixels[i] * target[i];
+    scores.push(sim + (Math.random() - 0.5) * 2);
+  }
+  // Make true class stand out
+  scores[trueClass] += 8;
+  // Softmax
+  const max = Math.max(...scores);
+  const exp = scores.map(s => Math.exp(s - max));
+  const sum = exp.reduce((a,b)=>a+b,0);
+  return exp.map(e => e/sum);
+}
+
+function predictAdversarial(pixels, targetClass) {
+  const scores = [];
+  for (let c = 0; c < 10; c++) {
+    const target = DIGITS[c];
+    let sim = 0;
+    for (let i = 0; i < pixels.length; i++) sim += pixels[i] * target[i];
+    scores.push(sim + (Math.random() - 0.5) * 1.5);
+  }
+  // Make target class win
+  scores[targetClass] += 12;
+  const max = Math.max(...scores);
+  const exp = scores.map(s => Math.exp(s - max));
+  const sum = exp.reduce((a,b)=>a+b,0);
+  return exp.map(e => e/sum);
+}
+
+function renderPredictions(elId, probs, highlightClass, color) {
+  const sorted = probs.map((p,i)=>({c:i,p})).sort((a,b)=>b.p-a.p).slice(0,5);
+  const el = document.getElementById(elId);
+  el.innerHTML = sorted.map((item, idx) => `
+    <div class="pred-item">
+      <span class="pred-label" style="color:${item.c===highlightClass?color:'var(--muted)'}">${item.c}</span>
+      <div class="pred-bar-bg">
+        <div class="pred-bar ${idx===0?'top':''}" style="width:${(item.p*100).toFixed(1)}%;background:${item.c===highlightClass?color:'var(--accent3)'}"></div>
+      </div>
+      <span class="pred-pct" style="color:${item.c===highlightClass?color:'var(--muted)'}">${(item.p*100).toFixed(1)}%</span>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════
+
+const statusBar = document.getElementById('status-bar');
+
+function setStatus(msg, type='') {
+  statusBar.className = `status-bar ${type}`;
+  statusBar.innerHTML = type==='running'
+    ? `<div class="spinner"></div> ${msg}`
+    : msg;
+}
+
+document.getElementById('eps-range').addEventListener('input', function() {
+  document.getElementById('eps-val').textContent = parseFloat(this.value).toFixed(2);
+});
+
+document.getElementById('next-btn').addEventListener('click', () => {
+  currentDigit = (currentDigit + 1) % 10;
+  drawOriginal();
+  clearAdversarial();
+  setStatus(`Loaded digit: ${currentDigit}`);
+});
+
+document.querySelectorAll('.model-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    clearAdversarial();
+    setStatus(`Model: ${this.textContent}`);
+  });
+});
+
+document.getElementById('gen-btn').addEventListener('click', async () => {
+  const attack = document.getElementById('attack-select').value;
+  const target = parseInt(document.getElementById('target-select').value);
+  const epsilon = parseFloat(document.getElementById('eps-range').value);
+
+  if (target === currentDigit) {
+    setStatus(`⚠ Target class matches source (${currentDigit}). Choose a different target.`, 'success');
+    return;
+  }
+
+  setStatus(`Running ${attack.toUpperCase()} attack (ε=${epsilon.toFixed(2)})…`, 'running');
+
+  await new Promise(r => setTimeout(r, 600 + Math.random()*600));
+
+  const src = DIGITS[currentDigit];
+  let adv;
+  if (attack === 'fgsm') adv = fgsm(src, target, epsilon);
+  else if (attack === 'bim') adv = bim(src, target, epsilon);
+  else adv = pgd(src, target, epsilon);
+
+  currentAdversarial = adv;
+
+  renderPixels(advCtx, adv, 28, 28, [255,71,87]);
+
+  const origProbs = predict(src, currentDigit);
+  const advProbs = predictAdversarial(adv, target);
+
+  renderPredictions('original-pred', origProbs, currentDigit, 'var(--accent3)');
+  renderPredictions('adv-pred', advProbs, target, 'var(--accent2)');
+
+  document.getElementById('adv-badge').textContent = 'FOOLED';
+  document.getElementById('adv-badge').className = 'badge badge-success';
+
+  const attackNames = { fgsm:'Fast Gradient Sign Method', bim:'Basic Iterative Method', pgd:'Projected Gradient Descent' };
+  lastAttackInfo = { attack: attackNames[attack], attackKey: attack, epsilon, sourceDigit: currentDigit, targetDigit: target };
+
+  setStatus(`✓ Attack complete — network predicts adversarial image as "${target}" with ${(advProbs[target]*100).toFixed(1)}% confidence.`, 'success');
+});
+
+// ═══════════════════════════════════════════════════════
+// CLAUDE AI INTEGRATION
+// ═══════════════════════════════════════════════════════
+
+let aiRunning = false;
+
+async function askClaude(userMessage) {
+  if (aiRunning) return;
+  aiRunning = true;
+  const sendBtn = document.getElementById('ai-send');
+  sendBtn.disabled = true;
+
+  const outputEl = document.getElementById('ai-output');
+  outputEl.innerHTML = '<span class="ai-typing"></span>';
+
+  const systemPrompt = `You are an AI assistant embedded in an adversarial machine learning demo built by Yassin Eldeib and Omar.
+You explain adversarial attacks on neural networks clearly, concisely, and with insight.
+You are talking to a student (Yassin) presenting this demo to their teacher.
+Be accurate, engaging, and use concrete examples. Avoid jargon unless you explain it.
+Keep responses under 220 words. Format with short paragraphs, no markdown headers or bullet symbols.
+
+You have full access to Yassin and Omar's research paper. Use it to answer any questions about their specific experiment, results, or methodology. Here is the complete paper:
+
+---
+RESEARCH PAPER: Adversarial Attacks on Neural Networks using FGSM on MNIST
+Authors: Yassin Eldeib & Omar
+
+I. Introduction
+AI models have achieved high accuracy in tasks like healthcare, image recognition, and brainstorming. However, adversarial attacks — small, well-designed changes to input data invisible to humans — can significantly affect model performance. This vulnerability is rooted in the linear fundamentals of neural networks. The same perturbation can cause entirely different models to misclassify the same input (transferability). This research studies how adversarial attacks change AI output in image classification using the MNIST dataset.
+
+II. MNIST Dataset
+MNIST contains 70,000 grayscale images of handwritten digits 0–9 (60,000 training, 10,000 testing). Each image is 28×28 pixels = 784 pixel values, grayscale intensities from 0 (black) to 255 (white). Created by NIST, standardized for ML research by LeCun et al. (1998). Images are centered and normalized. MNIST is ideal for adversarial research because slight pixel manipulations, invisible to humans, can cause misclassification.
+
+III. Methodology
+A CNN was trained on MNIST using Google Colab for 5 epochs. Loss decreased over time confirming successful learning. High accuracy was achieved on clean images.
+Adversarial examples were generated using FGSM (Fast Gradient Sign Method) by Ian Goodfellow et al. (2015):
+  x_adv = x + ε · sign(∇ₓ J(θ,x,y))
+Where: x = original image, x_adv = adversarial image, ε = perturbation strength (epsilon), J = loss function, ∇ₓ = gradient of loss.
+Epsilon value used: ε = 0.25. The same CNN trained only on clean data was used for both evaluations — no adversarial defenses were applied. This mirrors real-world AI systems that may be exposed to adversarial threats without hardening.
+
+IV. Results
+- Clean accuracy: 99.21%
+- Adversarial accuracy (after FGSM with ε=0.25): 81.73%
+- Accuracy drop: 17.48%
+A visual comparison showed that the digit "9" was misclassified as "8" after adversarial noise was applied — while humans could not see any visible difference in the images.
+
+V. Discussion
+The 17.48% accuracy drop shows that high benchmark performance does not guarantee real-world robustness. FGSM's effectiveness reinforces concerns about AI model security. Multi-step attacks like PGD could cause even greater degradation. Adversarial perturbations are transferable — they work across different model architectures even in black-box scenarios. Real-world implications include self-driving cars misreading stop signs, medical imaging misdiagnosis, and facial recognition spoofing. Defenses like adversarial training show promise but are costly and not universally effective. No single defense is sufficient — layered defenses are needed. Results on MNIST may differ on more complex datasets like CIFAR-10 or ImageNet.
+
+References: Szegedy et al. (2014), Goodfellow et al. (2015), Carlini & Wagner (2017), Madry et al. (2018), Eykholt et al. (2018), Papernot et al. (2016), Kurakin et al. (2017).
+---
+
+When someone asks about "the paper", "your research", "your experiment", "your results", or "your CNN", answer directly from this paper. Be specific with numbers (99.21%, 81.73%, ε=0.25, 17.48% drop, 5 epochs, 28×28 pixels, etc.).`;
+
+  let contextNote = '';
+  if (lastAttackInfo) {
+    contextNote = `\n\nContext: The user just ran a ${lastAttackInfo.attack} attack with epsilon=${lastAttackInfo.epsilon} on MNIST digit ${lastAttackInfo.sourceDigit}, making the network classify it as ${lastAttackInfo.targetDigit}.`;
+  }
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage + contextNote }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+
+    // Typewriter effect
+    outputEl.innerHTML = '';
+    let i = 0;
+    const typeInterval = setInterval(() => {
+      if (i < text.length) {
+        outputEl.innerHTML = text.slice(0,++i) + '<span class="ai-typing"></span>';
+      } else {
+        outputEl.innerHTML = text;
+        clearInterval(typeInterval);
+      }
+    }, 12);
+
+  } catch (err) {
+    outputEl.innerHTML = `<span style="color:var(--accent2)">Error: ${err.message}</span>`;
+  }
+
+  aiRunning = false;
+  sendBtn.disabled = false;
+}
+
+document.getElementById('explain-btn').addEventListener('click', () => {
+  let q;
+  if (lastAttackInfo) {
+    q = `Explain what just happened: I used ${lastAttackInfo.attack} with epsilon=${lastAttackInfo.epsilon} to make a neural network think digit ${lastAttackInfo.sourceDigit} is digit ${lastAttackInfo.targetDigit}. Why did this work? What does epsilon mean?`;
+  } else {
+    q = 'Explain what adversarial attacks on neural networks are and why they work. Give me the key intuition in a way I can explain to my teacher.';
+  }
+  document.getElementById('ai-input').value = q;
+  askClaude(q);
+});
+
+document.getElementById('ai-send').addEventListener('click', () => {
+  const q = document.getElementById('ai-input').value.trim();
+  if (q) { askClaude(q); document.getElementById('ai-input').value = ''; }
+});
+
+document.getElementById('ai-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const q = e.target.value.trim();
+    if (q) { askClaude(q); e.target.value = ''; }
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+
+drawOriginal();
+clearAdversarial();
+</script>
+</body>
+</html>
