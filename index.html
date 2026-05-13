@@ -663,12 +663,6 @@
       <div class="logo-dot"></div>
       Adversarial Attacks
     </a>
-    <nav>
-      <a href="#">Intro</a>
-      <a href="#">Examples</a>
-      <a href="#">FAQ</a>
-      <a href="#">API</a>
-    </nav>
   </header>
 
 
@@ -1155,11 +1149,11 @@ When someone asks about "the paper", "your research", "your experiment", "your r
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://ammar.eammar63.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage + contextNote }]
